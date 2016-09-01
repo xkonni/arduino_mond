@@ -1,18 +1,17 @@
-// This is a demonstration on how to use an input device to trigger changes on your neo pixels.
-// You should wire a momentary push button to connect from ground to a digital IO pin.  When you
-// press the button it will change to a new pixel animation.  Note that you need to press the
-// button once to start the first animation!
+/*
+ * place arduino inside a lamp,
+ * add a neopixel led strip
+ * and a button
+ * to cycle between some predefined led layouts
+ */
 
 #include <Adafruit_NeoPixel.h>
 
-#define BUTTON_PIN   2    // Digital IO pin connected to the button.  This will be
-                          // driven with a pull-up resistor so the switch should
-                          // pull the pin to ground momentarily.  On a high -> low
-                          // transition the button press logic will execute.
-
-#define PIXEL_PIN    3    // Digital IO pin connected to the NeoPixels.
-
+#define BUTTON_PIN   2
+#define PIXEL_PIN    3
 #define PIXEL_COUNT 16
+#define INTERRUPTDELAY 1000   // 1 sec
+#define NUM_MODES 12
 
 // Parameter 1 = number of pixels in strip,  neopixel stick has 8
 // Parameter 2 = pin number (most are valid)
@@ -21,72 +20,92 @@
 //   NEO_GRB     Pixels are wired for GRB bitstream, correct for neopixel stick
 //   NEO_KHZ400  400 KHz bitstream (e.g. FLORA pixels)
 //   NEO_KHZ800  800 KHz bitstream (e.g. High Density LED strip), correct for neopixel stick
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, NEO_GRB + NEO_KHZ400);
 
-bool oldState = HIGH;
-int showType = 0;
+char *MODES[] = { "Black/off", "Stroboscope", "colorWipe - White", "colorWipe - Red",
+     "colorWipe - Green", "colorWipe - Blue", "theaterChase - White",
+     "theaterChase - Red", "theaterChase - Green", "theaterChase - Blue",
+     "rainbow", "rainbowCycle", "theaterChaseRainbow" };
+
+int showMode = 0;
+unsigned long interruptTime;
 
 void setup() {
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   strip.begin();
   Serial.begin(115200);
   strip.show(); // Initialize all pixels to 'off'
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), handleInterrupt, CHANGE);
+}
+
+void handleInterrupt() {
+  unsigned long currentTime = millis();
+  if (currentTime - interruptTime > INTERRUPTDELAY) {
+    interruptTime = millis();
+    showMode++;
+    if (showMode > NUM_MODES) showMode=0;
+    Serial.print("Mode: "); Serial.println(MODES[showMode]);
+  }
 }
 
 void loop() {
-  // Get current button state.
-  bool newState = digitalRead(BUTTON_PIN);
-
-  // Check if state changed from high to low (button press).
-  if (newState == LOW && oldState == HIGH) {
-    // Short delay to debounce button.
-    delay(20);
-    // Check if button is still low after debounce.
-    newState = digitalRead(BUTTON_PIN);
-    if (newState == LOW) {
-      showType++;
-      if (showType > 9)
-        showType=0;
-      startShow(showType);
-    }
-  }
-
-  // Set the last button state to the old state.
-  oldState = newState;
+  startShow(showMode);
 }
 
 void startShow(int i) {
   switch(i){
-    case 0: 
-            Serial.println("Black/off");
-            colorWipe(strip.Color(0, 0, 0), 50);    // Black/off
+    // Black/off
+    case 0:
+            colorWipe(strip.Color(0, 0, 0), 10);
             break;
-    case 1: 
-            colorWipe(strip.Color(255, 0, 0), 50);  // Red
+    // Stroboscope
+    case 1:
+            colorWipe(strip.Color(0, 0, 0), 0);
+            delay(25);
+            colorWipe(strip.Color(255, 255, 255), 0);
             break;
-    case 2: 
-            colorWipe(strip.Color(0, 255, 0), 50);  // Green
+    // colorWipe - White
+    case 2:
+            colorWipe(strip.Color(255, 255, 255), 10);
             break;
-    case 3: 
-            colorWipe(strip.Color(0, 0, 255), 50);  // Blue
+    // colorWipe - Red
+    case 3:
+            colorWipe(strip.Color(255, 0, 0), 10);
             break;
-    case 4: 
-            theaterChase(strip.Color(255, 255, 255), 50); // White
+    // colorWipe - Green
+    case 4:
+            colorWipe(strip.Color(0, 255, 0), 10);
             break;
-    case 5: 
-            theaterChase(strip.Color(255,   0,   0), 50); // Dark Red
+    // colorWipe - Blue
+    case 5:
+            colorWipe(strip.Color(0, 0, 255), 10);
             break;
-    case 6: 
-            theaterChase(strip.Color(  0,   0, 127), 50); // Dark Blue
+    // theaterChase - White
+    case 6:
+            theaterChase(strip.Color(127, 127, 127), 50);
             break;
-    case 7: 
+    // theaterChase - Red
+    case 7:
+            theaterChase(strip.Color(127,   0,   0), 50);
+            break;
+    // theaterChase - Green
+    case 8:
+            theaterChase(strip.Color(  0,   127, 0), 50);
+            break;
+    // theaterChase - Blue
+    case 9:
+            theaterChase(strip.Color(  0,   0, 127), 50);
+            break;
+    // rainbow
+    case 10:
             rainbow(20);
             break;
-    case 8: 
+    // rainbowCycle
+    case 11:
             rainbowCycle(20);
             break;
-    case 9: 
-            Serial.println("theater Chase Rainbow");
+    // theaterChaseRainbow
+    case 12:
             theaterChaseRainbow(50);
             break;
   }
@@ -94,18 +113,18 @@ void startShow(int i) {
 
 // Fill the dots one after the other with a color
 void colorWipe(uint32_t c, uint8_t wait) {
-  Serial.println("color Wipe starting...");
+  int oldMode = showMode;
 
   for(uint16_t i=0; i<strip.numPixels(); i++) {
     strip.setPixelColor(i, c);
     strip.show();
-//    delay(wait);
+    if (oldMode != showMode) return;
+    delay(wait);
   }
-  Serial.println("color Wipe done.");
 }
 
 void rainbow(uint8_t wait) {
-  Serial.println("Rainbow starting...");
+  int oldMode = showMode;
   uint16_t i, j;
 
   for(j=0; j<256; j++) {
@@ -113,14 +132,14 @@ void rainbow(uint8_t wait) {
       strip.setPixelColor(i, Wheel((i+j) & 255));
     }
     strip.show();
+    if (oldMode != showMode) return;
     delay(wait);
   }
-  Serial.println("Rainbow done...");
 }
 
 // Slightly different, this makes the rainbow equally distributed throughout
 void rainbowCycle(uint8_t wait) {
-  Serial.println("Rainbow Cycle starting...");
+  int oldMode = showMode;
   uint16_t i, j;
 
   for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
@@ -128,21 +147,22 @@ void rainbowCycle(uint8_t wait) {
       strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
     }
     strip.show();
+    if (oldMode != showMode) return;
     delay(wait);
   }
-  Serial.println("Rainbow Cycle done.");
 }
 
 //Theatre-style crawling lights.
 void theaterChase(uint32_t c, uint8_t wait) {
-  Serial.println("Theater Chase starting...");
+  int oldMode = showMode;
+
   for (int j=0; j<10; j++) {  //do 10 cycles of chasing
     for (int q=0; q < 3; q++) {
       for (int i=0; i < strip.numPixels(); i=i+3) {
         strip.setPixelColor(i+q, c);    //turn every third pixel on
       }
       strip.show();
-
+      if (oldMode != showMode) return;
       delay(wait);
 
       for (int i=0; i < strip.numPixels(); i=i+3) {
@@ -150,19 +170,18 @@ void theaterChase(uint32_t c, uint8_t wait) {
       }
     }
   }
-  Serial.println("Theater Chase done.");
 }
 
 //Theatre-style crawling lights with rainbow effect
 void theaterChaseRainbow(uint8_t wait) {
-  Serial.println("Theater Chase Rainbow starting...");
+  int oldMode = showMode;
   for (int j=0; j < 256; j++) {     // cycle all 256 colors in the wheel
     for (int q=0; q < 3; q++) {
       for (int i=0; i < strip.numPixels(); i=i+3) {
         strip.setPixelColor(i+q, Wheel( (i+j) % 255));    //turn every third pixel on
       }
       strip.show();
-
+      if (oldMode != showMode) return;
       delay(wait);
 
       for (int i=0; i < strip.numPixels(); i=i+3) {
@@ -170,7 +189,6 @@ void theaterChaseRainbow(uint8_t wait) {
       }
     }
   }
-  Serial.println("Theater Chase Rainbow done.");
 }
 
 // Input a value 0 to 255 to get a color value.
