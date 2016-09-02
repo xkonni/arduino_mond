@@ -7,11 +7,14 @@
 
 #include <Adafruit_NeoPixel.h>
 
-#define BUTTON_PIN   2
-#define PIXEL_PIN    3
-#define PIXEL_COUNT 16
-#define INTERRUPTDELAY 1000   // 1 sec
-#define NUM_MODES 12
+#define BUTTON_PIN      2
+#define PIXEL_PIN       3
+#define PIXEL_COUNT     16
+#define INTERRUPTDELAY  1000    // 1 sec
+#define NUM_MODES       3       // ignore static colors for now
+
+void colorWipe(uint32_t c, uint8_t wait);
+void rainbow(uint8_t wait);
 
 // Parameter 1 = number of pixels in strip,  neopixel stick has 8
 // Parameter 2 = pin number (most are valid)
@@ -20,14 +23,14 @@
 //   NEO_GRB     Pixels are wired for GRB bitstream, correct for neopixel stick
 //   NEO_KHZ400  400 KHz bitstream (e.g. FLORA pixels)
 //   NEO_KHZ800  800 KHz bitstream (e.g. High Density LED strip), correct for neopixel stick
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, NEO_GRB + NEO_KHZ400);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
-char *MODES[] = { "Black/off", "Stroboscope", "colorWipe - White", "colorWipe - Red",
-     "colorWipe - Green", "colorWipe - Blue", "theaterChase - White",
-     "theaterChase - Red", "theaterChase - Green", "theaterChase - Blue",
-     "rainbow", "rainbowCycle", "theaterChaseRainbow" };
+char *MODES[] = { "Black/off", "Stroboscope", "rainbow", "saved",
+     "colorWipe - White", "colorWipe - Red", "colorWipe - Green", "colorWipe - Blue",
+     "colorWipe - Turquoise", "colorWipe - Purple", "colorWipe - Orange" };
 
 int showMode = 0;
+uint32_t color;
 unsigned long interruptTime;
 
 void setup() {
@@ -44,7 +47,8 @@ void handleInterrupt() {
     interruptTime = millis();
     showMode++;
     if (showMode > NUM_MODES) showMode=0;
-    Serial.print("Mode: "); Serial.println(MODES[showMode]);
+    Serial.print("Mode["); Serial.print(showMode);
+    Serial.print("] "); Serial.println(MODES[showMode]);
   }
 }
 
@@ -64,49 +68,42 @@ void startShow(int i) {
             delay(25);
             colorWipe(strip.Color(255, 255, 255), 0);
             break;
-    // colorWipe - White
+    // rainbow
     case 2:
+            rainbow(20);
+            break;
+    // saved
+    case 3:
+            // Serial.print("saved: "); Serial.println(color);
+            colorWipe(color, 20);
+            break;
+    // colorWipe - White
+    case 4:
             colorWipe(strip.Color(255, 255, 255), 10);
             break;
     // colorWipe - Red
-    case 3:
+    case 5:
             colorWipe(strip.Color(255, 0, 0), 10);
             break;
     // colorWipe - Green
-    case 4:
+    case 6:
             colorWipe(strip.Color(0, 255, 0), 10);
             break;
     // colorWipe - Blue
-    case 5:
+    case 7:
             colorWipe(strip.Color(0, 0, 255), 10);
             break;
-    // theaterChase - White
-    case 6:
-            theaterChase(strip.Color(127, 127, 127), 50);
-            break;
-    // theaterChase - Red
-    case 7:
-            theaterChase(strip.Color(127,   0,   0), 50);
-            break;
-    // theaterChase - Green
+    // colorWipe - turquoise
     case 8:
-            theaterChase(strip.Color(  0,   127, 0), 50);
+            colorWipe(strip.Color(38, 139, 210), 10);
             break;
-    // theaterChase - Blue
+    // colorWipe - purple
     case 9:
-            theaterChase(strip.Color(  0,   0, 127), 50);
+            colorWipe(strip.Color(255, 0, 127), 10);
             break;
-    // rainbow
+    // colorWipe - orange
     case 10:
-            rainbow(20);
-            break;
-    // rainbowCycle
-    case 11:
-            rainbowCycle(20);
-            break;
-    // theaterChaseRainbow
-    case 12:
-            theaterChaseRainbow(50);
+            colorWipe(strip.Color(255, 102, 0), 10);
             break;
   }
 }
@@ -129,65 +126,13 @@ void rainbow(uint8_t wait) {
 
   for(j=0; j<256; j++) {
     for(i=0; i<strip.numPixels(); i++) {
-      strip.setPixelColor(i, Wheel((i+j) & 255));
+      color = Wheel((i+j) & 255);
+      // Serial.print("rainbow: "); Serial.println(color);
+      strip.setPixelColor(i, color);
     }
     strip.show();
     if (oldMode != showMode) return;
     delay(wait);
-  }
-}
-
-// Slightly different, this makes the rainbow equally distributed throughout
-void rainbowCycle(uint8_t wait) {
-  int oldMode = showMode;
-  uint16_t i, j;
-
-  for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
-    for(i=0; i< strip.numPixels(); i++) {
-      strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
-    }
-    strip.show();
-    if (oldMode != showMode) return;
-    delay(wait);
-  }
-}
-
-//Theatre-style crawling lights.
-void theaterChase(uint32_t c, uint8_t wait) {
-  int oldMode = showMode;
-
-  for (int j=0; j<10; j++) {  //do 10 cycles of chasing
-    for (int q=0; q < 3; q++) {
-      for (int i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, c);    //turn every third pixel on
-      }
-      strip.show();
-      if (oldMode != showMode) return;
-      delay(wait);
-
-      for (int i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, 0);        //turn every third pixel off
-      }
-    }
-  }
-}
-
-//Theatre-style crawling lights with rainbow effect
-void theaterChaseRainbow(uint8_t wait) {
-  int oldMode = showMode;
-  for (int j=0; j < 256; j++) {     // cycle all 256 colors in the wheel
-    for (int q=0; q < 3; q++) {
-      for (int i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, Wheel( (i+j) % 255));    //turn every third pixel on
-      }
-      strip.show();
-      if (oldMode != showMode) return;
-      delay(wait);
-
-      for (int i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, 0);        //turn every third pixel off
-      }
-    }
   }
 }
 
