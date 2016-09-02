@@ -29,8 +29,8 @@ char *MODES[] = { "Black/off", "Stroboscope", "rainbow", "saved",
      "colorWipe - White", "colorWipe - Red", "colorWipe - Green", "colorWipe - Blue",
      "colorWipe - Turquoise", "colorWipe - Purple", "colorWipe - Orange" };
 
-int showMode = 0;
-uint32_t color;
+volatile int showMode = 0;
+volatile uint32_t color = 0;
 unsigned long interruptTime;
 
 void setup() {
@@ -74,7 +74,6 @@ void startShow(int i) {
             break;
     // saved
     case 3:
-            // Serial.print("saved: "); Serial.println(color);
             colorWipe(color, 20);
             break;
     // colorWipe - White
@@ -103,6 +102,7 @@ void startShow(int i) {
             break;
     // colorWipe - orange
     case 10:
+            Serial.println("orange");
             colorWipe(strip.Color(255, 102, 0), 10);
             break;
   }
@@ -127,7 +127,6 @@ void rainbow(uint8_t wait) {
   for(j=0; j<256; j++) {
     for(i=0; i<strip.numPixels(); i++) {
       color = Wheel((i+j) & 255);
-      // Serial.print("rainbow: "); Serial.println(color);
       strip.setPixelColor(i, color);
     }
     strip.show();
