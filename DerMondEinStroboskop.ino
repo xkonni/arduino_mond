@@ -11,7 +11,7 @@
 #define PIXEL_PIN       3
 #define PIXEL_COUNT     16
 #define INTERRUPTDELAY  1000    // 1 sec
-#define NUM_MODES       3       // ignore static colors for now
+#define NUM_MODES       2       // number of modes
 
 void colorWipe(uint32_t c, uint8_t wait);
 void rainbow(uint8_t wait);
@@ -25,9 +25,7 @@ void rainbow(uint8_t wait);
 //   NEO_KHZ800  800 KHz bitstream (e.g. High Density LED strip), correct for neopixel stick
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
-char *MODES[] = { "Black/off", "Stroboscope", "rainbow", "saved",
-     "colorWipe - White", "colorWipe - Red", "colorWipe - Green", "colorWipe - Blue",
-     "colorWipe - Turquoise", "colorWipe - Purple", "colorWipe - Orange" };
+char *MODES[] = { "rainbow", "saved", "stroboscope" };
 
 volatile int showMode = 0;
 volatile uint32_t color = 0;
@@ -58,52 +56,19 @@ void loop() {
 
 void startShow(int i) {
   switch(i){
-    // Black/off
-    case 0:
-            colorWipe(strip.Color(0, 0, 0), 10);
-            break;
-    // Stroboscope
-    case 1:
-            colorWipe(strip.Color(0, 0, 0), 0);
-            delay(25);
-            colorWipe(strip.Color(255, 255, 255), 0);
-            break;
     // rainbow
-    case 2:
+    case 0:
             rainbow(20);
             break;
     // saved
-    case 3:
+    case 1:
             colorWipe(color, 20);
             break;
-    // colorWipe - White
-    case 4:
-            colorWipe(strip.Color(255, 255, 255), 10);
-            break;
-    // colorWipe - Red
-    case 5:
-            colorWipe(strip.Color(255, 0, 0), 10);
-            break;
-    // colorWipe - Green
-    case 6:
-            colorWipe(strip.Color(0, 255, 0), 10);
-            break;
-    // colorWipe - Blue
-    case 7:
-            colorWipe(strip.Color(0, 0, 255), 10);
-            break;
-    // colorWipe - turquoise
-    case 8:
-            colorWipe(strip.Color(38, 139, 210), 10);
-            break;
-    // colorWipe - purple
-    case 9:
-            colorWipe(strip.Color(255, 0, 127), 10);
-            break;
-    // colorWipe - orange
-    case 10:
-            Serial.println("orange");
-            colorWipe(strip.Color(255, 102, 0), 10);
+    // Stroboscope
+    case 2:
+            colorWipe(strip.Color(0, 0, 0), 0);
+            delay(50);
+            colorWipe(strip.Color(255, 255, 255), 0);
             break;
   }
 }
